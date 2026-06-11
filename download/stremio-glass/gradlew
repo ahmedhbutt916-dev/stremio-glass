@@ -1,0 +1,4 @@
+#!/bin/sh
+# Gradle wrapper stub - download full wrapper with: gradle wrapper
+# Or copy from an existing Android project
+exec gradle "$@"
