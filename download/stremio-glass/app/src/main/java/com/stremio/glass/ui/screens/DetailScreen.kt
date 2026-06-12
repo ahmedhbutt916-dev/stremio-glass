@@ -34,6 +34,7 @@ import com.stremio.glass.viewmodel.DetailViewModel
 fun DetailScreen(
     onBack: () -> Unit,
     onPlayStream: (Stream) -> Unit,
+    onPlayEpisode: (metaType: String, metaId: String, videoId: String, videoTitle: String) -> Unit,
     viewModel: DetailViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -44,6 +45,33 @@ fun DetailScreen(
             contentAlignment = Alignment.Center
         ) {
             CircularProgressIndicator(color = AccentPrimary)
+        }
+        return
+    }
+
+    if (uiState.error != null) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.padding(32.dp)
+            ) {
+                Text(
+                    text = "Could not load details",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = TextPrimary
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = uiState.error ?: "",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TextSecondary
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                LiquidFilledButton(onClick = { viewModel.loadMeta() }, text = "Retry")
+            }
         }
         return
     }
@@ -248,7 +276,7 @@ fun DetailScreen(
                     Spacer(modifier = Modifier.height(12.dp))
                 }
 
-                // Episode list
+                // Episode list - wired up with play functionality
                 for (episode in episodes) {
                     LiquidGlassSurface(
                         modifier = Modifier
@@ -280,7 +308,17 @@ fun DetailScreen(
                                     )
                                 }
                             }
-                            LiquidIconButton(onClick = { /* play this episode */ }) {
+                            // Play button - navigates to player and fetches streams in background
+                            LiquidIconButton(
+                                onClick = {
+                                    onPlayEpisode(
+                                        meta.type,
+                                        meta.id,
+                                        episode.id,
+                                        "S${episode.season}E${episode.episode} ${episode.title}"
+                                    )
+                                }
+                            ) {
                                 androidx.compose.material3.Icon(
                                     imageVector = Icons.Default.PlayArrow,
                                     contentDescription = "Play",
@@ -304,10 +342,22 @@ fun DetailScreen(
             Spacer(modifier = Modifier.height(8.dp))
 
             if (uiState.isLoadingStreams) {
-                CircularProgressIndicator(
-                    color = AccentPrimary,
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.padding(16.dp)
-                )
+                ) {
+                    CircularProgressIndicator(
+                        color = AccentPrimary,
+                        modifier = Modifier.size(24.dp),
+                        strokeWidth = 2.dp
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        text = "Loading streams...",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = TextTertiary
+                    )
+                }
             } else if (uiState.streams.isEmpty()) {
                 Text(
                     text = "No streams available. Install streaming addons.",

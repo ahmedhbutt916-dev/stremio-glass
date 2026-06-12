@@ -1,9 +1,7 @@
 package com.stremio.glass.data.local
 
 import androidx.room.*
-import com.stremio.glass.data.model.Addon
-import com.stremio.glass.data.model.Manifest
-import kotlinx.serialization.json.Json
+import kotlinx.coroutines.flow.Flow
 
 @Entity(tableName = "addons")
 data class AddonEntity(
@@ -44,8 +42,13 @@ data class SearchHistoryEntity(
 
 @Dao
 interface AddonDao {
+    // Observable Flow query for UI
     @Query("SELECT * FROM addons WHERE installed = 1 ORDER BY `order` ASC")
-    suspend fun getInstalledAddons(): List<AddonEntity>
+    fun getInstalledAddonsFlow(): Flow<List<AddonEntity>>
+
+    // One-shot query for background operations
+    @Query("SELECT * FROM addons WHERE installed = 1 AND enabled = 1 ORDER BY `order` ASC")
+    suspend fun getEnabledAddons(): List<AddonEntity>
 
     @Query("SELECT * FROM addons ORDER BY `order` ASC")
     suspend fun getAllAddons(): List<AddonEntity>
@@ -68,6 +71,11 @@ interface AddonDao {
 
 @Dao
 interface LibraryDao {
+    // Observable Flow query for UI
+    @Query("SELECT * FROM library ORDER BY addedAt DESC")
+    fun getLibraryFlow(): Flow<List<LibraryItemEntity>>
+
+    // One-shot query
     @Query("SELECT * FROM library ORDER BY addedAt DESC")
     suspend fun getLibrary(): List<LibraryItemEntity>
 
@@ -89,6 +97,11 @@ interface LibraryDao {
 
 @Dao
 interface SearchHistoryDao {
+    // Observable Flow query for UI
+    @Query("SELECT * FROM search_history ORDER BY searchedAt DESC LIMIT 20")
+    fun getRecentSearchesFlow(): Flow<List<SearchHistoryEntity>>
+
+    // One-shot query
     @Query("SELECT * FROM search_history ORDER BY searchedAt DESC LIMIT 20")
     suspend fun getRecentSearches(): List<SearchHistoryEntity>
 

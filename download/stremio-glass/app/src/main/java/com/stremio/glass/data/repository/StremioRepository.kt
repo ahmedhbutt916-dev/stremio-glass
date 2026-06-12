@@ -1,9 +1,12 @@
 package com.stremio.glass.data.repository
 
+import android.util.Log
 import com.stremio.glass.data.api.StremioAddonApi
 import com.stremio.glass.data.api.StremioAuthApi
 import com.stremio.glass.data.local.*
 import com.stremio.glass.data.model.*
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.*
 import kotlinx.serialization.json.Json
 
@@ -24,7 +27,7 @@ class StremioRepository(
 
     // --- Addon Management ---
 
-    fun getInstalledAddons(): Flow<List<Addon>> = addonDao.getInstalledAddons().map { entities ->
+    fun getInstalledAddons(): Flow<List<Addon>> = addonDao.getInstalledAddonsFlow().map { entities ->
         entities.mapNotNull { entity ->
             try {
                 val manifest = json.decodeFromString<Manifest>(entity.addonJson)
@@ -37,6 +40,7 @@ class StremioRepository(
                     lastUpdated = entity.lastUpdated
                 )
             } catch (e: Exception) {
+                Log.w("StremioRepo", "Failed to parse addon: ${entity.manifestUrl}", e)
                 null
             }
         }
@@ -55,6 +59,7 @@ class StremioRepository(
         addonDao.insertAddon(addonEntity)
         Result.success(Addon(manifestUrl = manifestUrl, manifest = manifest, installed = true, enabled = true))
     } catch (e: Exception) {
+        Log.e("StremioRepo", "Failed to install addon: $manifestUrl", e)
         Result.failure(e)
     }
 
@@ -77,6 +82,7 @@ class StremioRepository(
         val result = addonApi.getCatalog(addonUrl, type, id, extra)
         Result.success(result.metas)
     } catch (e: Exception) {
+        Log.w("StremioRepo", "Catalog fetch failed for $addonUrl", e)
         Result.failure(e)
     }
 
@@ -86,34 +92,99 @@ class StremioRepository(
         val result = addonApi.getMeta(addonUrl, type, id)
         Result.success(result.meta)
     } catch (e: Exception) {
+        Log.w("StremioRepo", "Meta fetch failed for $addonUrl", e)
+        Result.failure(e)
+    }
+
+    /**
+     * Try fetching metadata from multiple addons in parallel.
+     * Returns the first successful result.
+     */
+    suspend fun getMetaFromAnyAddon(type: String, id: String): Result<MetaItem> = try {
+        val enabledAddons = addonDao.getEnabledAddons()
+        val metaAddons = enabledAddons.filter { entity ->
+            try {
+                val manifest = json.decodeFromString<Manifest>(entity.addonJson)
+                manifest.resources.contains("meta")
+            } catch (e: Exception) { false }
+        }
+
+        if (metaAddons.isEmpty()) {
+            return Result.failure(Exception("No metadata addons installed"))
+        }
+
+        // Try addons sequentially (parallel would waste resources on metadata)
+        for (entity in metaAddons) {
+            try {
+                val result = addonApi.getMeta(entity.manifestUrl, type, id)
+                return Result.success(result.meta)
+            } catch (e: Exception) {
+                Log.d("StremioRepo", "Meta from ${entity.manifestUrl} failed, trying next", e)
+            }
+        }
+
+        Result.failure(Exception("Could not load metadata from any addon"))
+    } catch (e: Exception) {
+        Log.e("StremioRepo", "getMetaFromAnyAddon failed", e)
         Result.failure(e)
     }
 
     // --- Streams ---
 
     suspend fun getStreams(type: String, id: String): Result<List<Stream>> = try {
-        val installedAddons = addonDao.getInstalledAddons().filter { it.enabled }
-        val streamLists = installedAddons.mapNotNull { entity ->
+        val enabledAddons = addonDao.getEnabledAddons()
+        val streamLists = enabledAddons.mapNotNull { entity ->
             try {
                 val result = addonApi.getStreams(entity.manifestUrl, type, id)
                 result.streams
             } catch (e: Exception) {
+                Log.d("StremioRepo", "Streams from ${entity.manifestUrl} failed", e)
                 null
             }
         }
         Result.success(streamLists.flatten())
     } catch (e: Exception) {
+        Log.e("StremioRepo", "getStreams failed", e)
+        Result.failure(e)
+    }
+
+    /**
+     * Fetch streams from all enabled addons in PARALLEL for faster results.
+     * Prioritizes returning results quickly so the player can start buffering sooner.
+     */
+    suspend fun getStreamsParallel(type: String, id: String): Result<List<Stream>> = try {
+        val enabledAddons = addonDao.getEnabledAddons()
+        if (enabledAddons.isEmpty()) {
+            return Result.success(emptyList())
+        }
+
+        val allStreams = coroutineScope {
+            enabledAddons.map { entity ->
+                async {
+                    try {
+                        addonApi.getStreams(entity.manifestUrl, type, id).streams
+                    } catch (e: Exception) {
+                        Log.d("StremioRepo", "Streams from ${entity.manifestUrl} failed", e)
+                        emptyList()
+                    }
+                }
+            }.flatMap { it.await() }
+        }
+
+        Result.success(allStreams)
+    } catch (e: Exception) {
+        Log.e("StremioRepo", "getStreamsParallel failed", e)
         Result.failure(e)
     }
 
     // --- Search ---
 
     suspend fun search(query: String): Result<List<MetaItem>> = try {
-        val installedAddons = addonDao.getInstalledAddons().filter { it.enabled }
+        val enabledAddons = addonDao.getEnabledAddons()
         val searchResults = mutableListOf<MetaItem>()
         val seenIds = mutableSetOf<String>()
 
-        for (entity in installedAddons) {
+        for (entity in enabledAddons) {
             try {
                 val manifest = json.decodeFromString<Manifest>(entity.addonJson)
                 for (catalog in manifest.catalogs) {
@@ -133,19 +204,20 @@ class StremioRepository(
                     }
                 }
             } catch (e: Exception) {
-                // Skip failing addons
+                Log.d("StremioRepo", "Search from ${entity.manifestUrl} failed", e)
             }
         }
         // Save to search history
         searchHistoryDao.insertSearch(SearchHistoryEntity(query = query))
         Result.success(searchResults)
     } catch (e: Exception) {
+        Log.e("StremioRepo", "Search failed", e)
         Result.failure(e)
     }
 
     // --- Library ---
 
-    fun getLibrary(): Flow<List<LibraryItemEntity>> = libraryDao.getLibrary()
+    fun getLibrary(): Flow<List<LibraryItemEntity>> = libraryDao.getLibraryFlow()
 
     suspend fun addToLibrary(meta: MetaItem) {
         libraryDao.insertLibraryItem(
@@ -176,7 +248,7 @@ class StremioRepository(
 
     // --- Search History ---
 
-    fun getSearchHistory(): Flow<List<SearchHistoryEntity>> = searchHistoryDao.getRecentSearches()
+    fun getSearchHistory(): Flow<List<SearchHistoryEntity>> = searchHistoryDao.getRecentSearchesFlow()
 
     suspend fun clearSearchHistory() = searchHistoryDao.clearAll()
 
@@ -204,7 +276,7 @@ class StremioRepository(
                     installAddon(url)
                 }
             } catch (e: Exception) {
-                // Skip failing addons
+                Log.w("StremioRepo", "Failed to install default addon: $url", e)
             }
         }
     }

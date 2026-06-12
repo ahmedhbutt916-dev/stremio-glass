@@ -1,5 +1,6 @@
 package com.stremio.glass.viewmodel
 
+import android.util.Log
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -42,37 +43,25 @@ class DetailViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
 
-            // Try to get meta from installed addons
-            repository.getInstalledAddons().collectLatest { addons ->
-                val enabledAddons = addons.filter { it.enabled }
-                var metaItem: MetaItem? = null
-
-                for (addon in enabledAddons) {
-                    if (metaItem != null) break
-                    if (addon.manifest.resources.contains("meta")) {
-                        try {
-                            val result = repository.getMeta(addon.manifestUrl, metaType, metaId)
-                            if (result.isSuccess) {
-                                metaItem = result.getOrThrow()
-                            }
-                        } catch (e: Exception) { /* skip */ }
-                    }
+            // Use the more resilient meta fetching method
+            val result = repository.getMetaFromAnyAddon(metaType, metaId)
+            if (result.isSuccess) {
+                val metaItem = result.getOrThrow()
+                _uiState.update {
+                    it.copy(
+                        meta = metaItem,
+                        isLoading = false,
+                        selectedSeason = metaItem.videos.firstOrNull()?.season,
+                        error = null
+                    )
                 }
-
-                if (metaItem != null) {
-                    _uiState.update {
-                        it.copy(
-                            meta = metaItem,
-                            isLoading = false,
-                            selectedSeason = metaItem.videos.firstOrNull()?.season
-                        )
-                    }
-                    loadStreams()
-                    checkLibrary()
-                } else {
-                    _uiState.update {
-                        it.copy(isLoading = false, error = "Could not load details for this item")
-                    }
+                loadStreams()
+                checkLibrary()
+            } else {
+                val errorMsg = result.exceptionOrNull()?.message ?: "Could not load details for this item"
+                Log.w("DetailVM", "Meta load failed: $errorMsg")
+                _uiState.update {
+                    it.copy(isLoading = false, error = errorMsg)
                 }
             }
         }
@@ -88,6 +77,7 @@ class DetailViewModel @Inject constructor(
                     it.copy(streams = result.getOrThrow(), isLoadingStreams = false)
                 }
             } else {
+                Log.w("DetailVM", "Stream load failed: ${result.exceptionOrNull()?.message}")
                 _uiState.update { it.copy(isLoadingStreams = false) }
             }
         }

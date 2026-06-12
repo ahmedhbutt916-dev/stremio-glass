@@ -14,6 +14,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.stremio.glass.data.model.Stream
 import com.stremio.glass.ui.navigation.Screen
 import com.stremio.glass.ui.navigation.bottomNavScreens
 import com.stremio.glass.ui.screens.*
@@ -40,8 +41,13 @@ class MainActivity : ComponentActivity() {
 fun StremioGlassApp() {
     val navController = rememberNavController()
     var currentTab by remember { mutableStateOf("home") }
-    var pendingStreamUrl by remember { mutableStateOf("") }
-    var pendingStreamTitle by remember { mutableStateOf("") }
+
+    // Shared playback state for navigating to the player
+    var pendingStream by remember { mutableStateOf<Stream?>(null) }
+    var pendingMetaType by remember { mutableStateOf("") }
+    var pendingMetaId by remember { mutableStateOf("") }
+    var pendingVideoId by remember { mutableStateOf("") }
+    var pendingVideoTitle by remember { mutableStateOf("") }
 
     val navItems = listOf(
         NavItem(id = "home", label = "Home", icon = androidx.compose.material.icons.Icons.Default.Home),
@@ -103,33 +109,39 @@ fun StremioGlassApp() {
                         navArgument("metaType") { type = NavType.StringType },
                         navArgument("metaId") { type = NavType.StringType }
                     )
-                ) {
+                ) { backStackEntry ->
+                    val metaType = backStackEntry.arguments?.getString("metaType") ?: "movie"
+                    val metaId = backStackEntry.arguments?.getString("metaId") ?: ""
+
                     DetailScreen(
                         onBack = { navController.popBackStack() },
                         onPlayStream = { stream ->
-                            pendingStreamUrl = when {
-                                stream.url.isNotEmpty() -> stream.url
-                                stream.ytId.isNotEmpty() -> "https://www.youtube.com/watch?v=${stream.ytId}"
-                                stream.externalUrl.isNotEmpty() -> stream.externalUrl
-                                stream.infoHash.isNotEmpty() -> {
-                                    val magnet = "magnet:?xt=urn:btih:${stream.infoHash}"
-                                    if (stream.sources.isNotEmpty()) {
-                                        magnet + "&" + stream.sources.joinToString("&") { "tr=$it" }
-                                    } else magnet
-                                }
-                                else -> ""
-                            }
-                            pendingStreamTitle = stream.title.ifEmpty { stream.name }
-                            if (pendingStreamUrl.isNotEmpty()) {
-                                navController.navigate("player")
-                            }
+                            // Stream chip clicked - pass the stream for playback
+                            pendingStream = stream
+                            pendingMetaType = metaType
+                            pendingMetaId = metaId
+                            pendingVideoId = ""
+                            pendingVideoTitle = ""
+                            navController.navigate("player")
+                        },
+                        onPlayEpisode = { epMetaType, epMetaId, videoId, videoTitle ->
+                            // Episode play button clicked - player will fetch streams in background
+                            pendingStream = null
+                            pendingMetaType = epMetaType
+                            pendingMetaId = epMetaId
+                            pendingVideoId = videoId
+                            pendingVideoTitle = videoTitle
+                            navController.navigate("player")
                         }
                     )
                 }
                 composable("player") {
                     PlayerScreen(
-                        streamUrl = pendingStreamUrl,
-                        streamTitle = pendingStreamTitle,
+                        pendingStream = pendingStream,
+                        pendingMetaType = pendingMetaType,
+                        pendingMetaId = pendingMetaId,
+                        pendingVideoId = pendingVideoId,
+                        pendingVideoTitle = pendingVideoTitle,
                         onBack = { navController.popBackStack() }
                     )
                 }
