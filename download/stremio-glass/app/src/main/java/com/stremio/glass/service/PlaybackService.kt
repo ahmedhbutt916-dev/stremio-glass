@@ -28,7 +28,7 @@ class PlaybackService : MediaSessionService() {
                     mediaSession: MediaSession,
                     controller: MediaSession.ControllerInfo,
                     mediaItems: MutableList<androidx.media3.common.MediaItem>
-                ): MutableList<androidx.media3.common.MediaItem> {
+                ): List<androidx.media3.common.MediaItem> {
                     return mediaItems
                 }
             })

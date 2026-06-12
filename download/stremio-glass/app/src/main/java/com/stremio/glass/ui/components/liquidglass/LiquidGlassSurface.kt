@@ -74,7 +74,7 @@ fun LiquidGlassSurface(
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && enabled) {
                     val blurPx = blurRadiusPx * (1f - animatedPress * 0.3f)
                     renderEffect = android.graphics.RenderEffect
-                        .createBlurEffect(blurPx, blurPx, Shader.TileMode.CLAMP)
+                        .createBlurEffect(blurPx, blurPx, android.graphics.Shader.TileMode.CLAMP)
                         .asComposeRenderEffect()
                 }
             }

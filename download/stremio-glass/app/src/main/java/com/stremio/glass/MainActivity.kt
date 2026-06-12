@@ -4,10 +4,19 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AddCircle
+import androidx.compose.material.icons.filled.Explore
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.VideoLibrary
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -50,16 +59,16 @@ fun StremioGlassApp() {
     var pendingVideoTitle by remember { mutableStateOf("") }
 
     val navItems = listOf(
-        NavItem(id = "home", label = "Home", icon = androidx.compose.material.icons.Icons.Default.Home),
-        NavItem(id = "discover", label = "Discover", icon = androidx.compose.material.icons.Icons.Default.Explore),
+        NavItem(id = "home", label = "Home", icon = Icons.Default.Home),
+        NavItem(id = "discover", label = "Discover", icon = Icons.Default.Explore),
         NavItem(
             id = "search",
             label = "Search",
-            icon = androidx.compose.material.icons.Icons.Default.Search,
+            icon = Icons.Default.Search,
             type = NavItemType.Search
         ),
-        NavItem(id = "addons", label = "Addons", icon = androidx.compose.material.icons.Icons.Default.AddCircle),
-        NavItem(id = "library", label = "Library", icon = androidx.compose.material.icons.Icons.Default.VideoLibrary)
+        NavItem(id = "addons", label = "Addons", icon = Icons.Default.AddCircle),
+        NavItem(id = "library", label = "Library", icon = Icons.Default.VideoLibrary)
     )
 
     Surface(
@@ -178,7 +187,7 @@ fun StremioGlassApp() {
                             restoreState = true
                         }
                     },
-                    modifier = Modifier.align(androidx.compose.ui.Alignment.BottomCenter)
+                    modifier = Modifier.align(Alignment.BottomCenter)
                 )
             }
         }

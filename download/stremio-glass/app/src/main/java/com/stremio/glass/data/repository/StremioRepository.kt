@@ -100,7 +100,8 @@ class StremioRepository(
      * Try fetching metadata from multiple addons in parallel.
      * Returns the first successful result.
      */
-    suspend fun getMetaFromAnyAddon(type: String, id: String): Result<MetaItem> = try {
+    suspend fun getMetaFromAnyAddon(type: String, id: String): Result<MetaItem> {
+        return try {
         val enabledAddons = addonDao.getEnabledAddons()
         val metaAddons = enabledAddons.filter { entity ->
             try {
@@ -128,6 +129,7 @@ class StremioRepository(
         Log.e("StremioRepo", "getMetaFromAnyAddon failed", e)
         Result.failure(e)
     }
+    }
 
     // --- Streams ---
 
@@ -152,7 +154,8 @@ class StremioRepository(
      * Fetch streams from all enabled addons in PARALLEL for faster results.
      * Prioritizes returning results quickly so the player can start buffering sooner.
      */
-    suspend fun getStreamsParallel(type: String, id: String): Result<List<Stream>> = try {
+    suspend fun getStreamsParallel(type: String, id: String): Result<List<Stream>> {
+        return try {
         val enabledAddons = addonDao.getEnabledAddons()
         if (enabledAddons.isEmpty()) {
             return Result.success(emptyList())
@@ -175,6 +178,7 @@ class StremioRepository(
     } catch (e: Exception) {
         Log.e("StremioRepo", "getStreamsParallel failed", e)
         Result.failure(e)
+    }
     }
 
     // --- Search ---

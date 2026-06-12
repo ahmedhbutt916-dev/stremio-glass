@@ -182,9 +182,7 @@ fun DetailScreen(
                     }
                 }
                 items(meta.genre.take(4)) { genre ->
-                    item {
-                        LiquidChip(text = genre)
-                    }
+                    LiquidChip(text = genre)
                 }
                 if (meta.year.isNotEmpty()) {
                     item {
