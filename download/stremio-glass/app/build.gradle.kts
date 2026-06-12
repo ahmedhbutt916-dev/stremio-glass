@@ -9,7 +9,7 @@ plugins {
 
 android {
     namespace = "com.stremio.glass"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.stremio.glass"
