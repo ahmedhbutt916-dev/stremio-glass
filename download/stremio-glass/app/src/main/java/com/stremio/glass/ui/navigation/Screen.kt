@@ -21,7 +21,7 @@ sealed class Screen(val route: String, val label: String, val icon: ImageVector)
     data object Player : Screen("player") {
         fun createRoute() = "player"
     }
-    data object Settings : Screen("settings") = Screen("settings", "Settings", Icons.Default.Home)
+    data object Settings : Screen("settings", "Settings", Icons.Default.Home)
 }
 
 val bottomNavScreens = listOf(
