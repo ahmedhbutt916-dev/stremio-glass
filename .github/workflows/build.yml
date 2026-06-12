@@ -27,16 +27,17 @@ jobs:
           cache-read-only: ${{ github.ref != 'refs/heads/main' }}
 
       - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
+        run: chmod +x download/stremio-glass/gradlew
 
       - name: Build debug APK
+        working-directory: download/stremio-glass
         run: ./gradlew assembleDebug --stacktrace
 
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
           name: stremio-glass-debug
-          path: app/build/outputs/apk/debug/*.apk
+          path: download/stremio-glass/app/build/outputs/apk/debug/*.apk
           retention-days: 30
 
   release:
@@ -58,13 +59,14 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
+        run: chmod +x download/stremio-glass/gradlew
 
       - name: Decode keystore
         run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > app/release.keystore
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > download/stremio-glass/app/release.keystore
 
       - name: Build release APK
+        working-directory: download/stremio-glass
         run: ./gradlew assembleRelease --stacktrace
         env:
           KEYSTORE_FILE: release.keystore
@@ -76,5 +78,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: stremio-glass-release
-          path: app/build/outputs/apk/release/*.apk
+          path: download/stremio-glass/app/build/outputs/apk/release/*.apk
           retention-days: 90
