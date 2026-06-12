@@ -11,6 +11,8 @@ import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
+import com.google.common.util.concurrent.Futures
+import com.google.common.util.concurrent.ListenableFuture
 import com.stremio.glass.MainActivity
 
 class PlaybackService : MediaSessionService() {
@@ -28,8 +30,8 @@ class PlaybackService : MediaSessionService() {
                     mediaSession: MediaSession,
                     controller: MediaSession.ControllerInfo,
                     mediaItems: MutableList<androidx.media3.common.MediaItem>
-                ): List<androidx.media3.common.MediaItem> {
-                    return mediaItems
+                ): ListenableFuture<MutableList<androidx.media3.common.MediaItem>> {
+                    return Futures.immediateFuture(mediaItems)
                 }
             })
             .build()
