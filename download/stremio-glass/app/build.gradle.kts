@@ -79,8 +79,12 @@ android {
 
 // Bypass AAR metadata check: backdrop 2.0.0 requires compileSdk 37,
 // but works fine at runtime on compileSdk 36. SDK 37 is not available on CI yet.
-tasks.matching { it.name.contains("checkAarMetadata", ignoreCase = true) }.configureEach {
-    enabled = false
+afterEvaluate {
+    tasks.configureEach {
+        if (name.contains("AarMetadata", ignoreCase = true)) {
+            enabled = false
+        }
+    }
 }
 
 dependencies {
